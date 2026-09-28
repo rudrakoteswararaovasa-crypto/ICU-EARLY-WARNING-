@@ -1,0 +1,102 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICU Early-Warning AI</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f7fb;margin:0;color:#172033}
+header{background:#0b3954;color:white;padding:24px}
+header h1{margin:0 0 8px}
+.container{max-width:1100px;margin:25px auto;padding:0 18px}
+.card{background:white;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 5px 20px #00000012}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+label{font-weight:600;font-size:14px}
+input,select{width:100%;box-sizing:border-box;padding:11px;margin-top:6px;border:1px solid #ccd4df;border-radius:8px}
+button{background:#0b3954;color:white;border:0;border-radius:9px;padding:13px 18px;font-size:16px;font-weight:700;cursor:pointer}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.metric{background:#eef4f8;padding:18px;border-radius:10px;text-align:center}
+.metric strong{display:block;font-size:27px;margin-top:7px}
+.alert{padding:15px;border-radius:10px;margin-top:15px;font-weight:700}
+.low{background:#e8f7ed}.medium{background:#fff5d9}.high{background:#ffe7e7}
+.small{font-size:13px;color:#5c6878}
+table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #e5e9ef;text-align:left}
+</style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <h1>🏥 ICU Patient Deterioration Early-Warning Prototype</h1>
+    <div>Academic/research decision-support prototype — not a medical diagnostic system.</div>
+  </div>
+</header>
+<div class="container">
+  <div class="card">
+    <h2>Patient observation</h2>
+    <div class="grid">
+      <div><label>Patient Code</label><input id="patient_code" value="ICU-DEMO-001"></div>
+      <div><label>Prediction Horizon</label><select id="horizon"><option>Next 6 hours</option><option selected>Next 12 hours</option><option>Next 24 hours</option></select></div>
+      <div><label>Heart Rate (bpm)</label><input id="heart_rate" type="number" value="92"></div>
+      <div><label>Systolic BP (mmHg)</label><input id="systolic_bp" type="number" value="118"></div>
+      <div><label>Respiratory Rate (/min)</label><input id="respiratory_rate" type="number" value="18"></div>
+      <div><label>SpO₂ (%)</label><input id="spo2" type="number" step="0.1" value="97"></div>
+      <div><label>Temperature (°C)</label><input id="temperature" type="number" step="0.1" value="37.0"></div>
+      <div><label>Lactate (mmol/L)</label><input id="lactate" type="number" step="0.1" value="1.4"></div>
+      <div><label>WBC (10^9/L)</label><input id="wbc" type="number" step="0.1" value="8.5"></div>
+      <div><label>Creatinine (mg/dL)</label><input id="creatinine" type="number" step="0.1" value="1.0"></div>
+      <div><label>Age (years)</label><input id="age" type="number" value="52"></div>
+      <div><label>Urine Output (mL/hr)</label><input id="urine_output" type="number" step="1" value="65"></div>
+    </div>
+    <br>
+    <button onclick="predict()">🔎 Predict Deterioration Risk</button>
+    <div id="message"></div>
+  </div>
+
+  <div class="card" id="result" style="display:none">
+    <h2>Risk result</h2>
+    <div class="metrics">
+      <div class="metric">Risk Probability<strong id="prob">-</strong></div>
+      <div class="metric">Risk Category<strong id="cat">-</strong></div>
+      <div class="metric">Horizon<strong id="hz">-</strong></div>
+    </div>
+    <div id="alert" class="alert"></div>
+    <p class="small" id="method"></p>
+  </div>
+
+  <div class="card">
+    <h2>System workflow</h2>
+    <p>EHR/ICU data → preprocessing → temporal representation → pretrained/transfer-learning model → risk probability → validated threshold → dashboard/alert</p>
+    <p class="small">For the runnable demo, the supplied documentation did not specify one exact medical foundation model or provide a clinical dataset, so this implementation uses a transparent synthetic-data baseline. Replace it with an approved de-identified ICU dataset and a selected pretrained clinical model for the full research implementation.</p>
+  </div>
+</div>
+<script>
+function v(id){return Number(document.getElementById(id).value)}
+async function predict(){
+ const payload={
+   heart_rate:v('heart_rate'), systolic_bp:v('systolic_bp'),
+   respiratory_rate:v('respiratory_rate'), spo2:v('spo2'),
+   temperature:v('temperature'), lactate:v('lactate'),
+   wbc:v('wbc'), creatinine:v('creatinine'),
+   age:v('age'), urine_output:v('urine_output')
+ };
+ const msg=document.getElementById('message');
+ msg.textContent='Calculating...';
+ try{
+   const r=await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+   const d=await r.json();
+   if(!r.ok) throw new Error(JSON.stringify(d));
+   document.getElementById('result').style.display='block';
+   document.getElementById('prob').textContent=(d.risk_probability*100).toFixed(1)+'%';
+   document.getElementById('cat').textContent=d.risk_category;
+   document.getElementById('hz').textContent=document.getElementById('horizon').value;
+   document.getElementById('method').textContent='Model method: '+d.method;
+   const a=document.getElementById('alert');
+   a.className='alert '+d.risk_category.toLowerCase();
+   a.textContent=(d.risk_category==='Low'?'Low-risk category in this prototype.':d.risk_category==='Medium'?'⚠️ Review required — medium-risk category in this prototype.':'⚠️ Review required — high-risk category in this prototype.');
+   msg.textContent='';
+ }catch(e){msg.textContent='Error: '+e.message}
+}
+</script>
+</body>
+</html>
